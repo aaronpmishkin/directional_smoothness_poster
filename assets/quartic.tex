@@ -1,0 +1,47 @@
+%! TEX root = ../../main.tex
+%% Illustration of step-sizes bound from Armijo line-search. 
+
+\begin{tikzpicture}[
+        declare function={
+                objective(\x)=      (\x<=0) * (pow(\x, 2)*0.8 - 1*\x)
+                + (\x>0) * (2.0*pow(\x, 3) - 2 * \x^2 - 1*\x);
+                objectivePrime(\x)=      (\x<=0) * (2*\x*0.8 - 1)
+                + (\x>0) * (6.0*pow(\x, 2) - 4 * \x - 1);
+                upperBound(\x)=     ( 2.5*pow(\x, 2) - 1*\x);
+                M(\x) = 1.2*abs(objectivePrime(\x) + 1) / abs(\x);
+                directionalSmoothness(\x) = -1 * \x
+                + M(\x) * pow(\x, 2) / 2;
+            }
+    ]
+    \begin{axis}[
+            width=0.5\textwidth,
+            height=6cm,
+            axis x line=none, axis y line=none,
+            ymin=-1.5, ymax=7, ytick={-5,...,7}, ylabel=$y$,
+            xmin=-2.5, xmax=5, xtick={-5,...,5}, xlabel=$x$,
+            restrict y to domain=-3.25:10,
+            scale=3.5,
+        ]
+
+        \addplot[name path=function, domain=-3.5:5.5, samples=200, objective, line width=8pt]{objective(x)};
+        %\addplot[name path=directionalSmoothness, domain=-3.5:5.5, samples=300, bound, line width=8pt]{directionalSmoothness(x)};
+        \addplot[name path=upperBound, domain=-3.5:5.5, samples=200, oracle, line width=8pt]{upperBound(x)};
+
+        \node[label={[font=\huge]270:$\xk$},circle,fill,inner sep=6pt] at (axis cs:0,0) {};
+
+        \node[label={[font=\huge]180:$f(w)$}] at (axis cs:3,1) {};
+        \node[label={[font=\Large]0:$L$-Smooth}] at (axis cs:-1.4,6) {};
+        \node[label={[font=\Large]0:Bound}] at (axis cs:-1.1,5.2) {};
+        %\node[label={0:{$\ell_{v_k}(\eta)$}}] at (axis cs:3.6,-2.4) {};
+        %\node[label={180:{$h_{v_k}(\eta)$}}] at (axis cs:0.3,3) {};
+
+        \addplot fill between[
+                of = function and upperBound,
+                %split, % calculate segments
+                every even segment/.style = {fill=red, fill opacity=0.3},
+                every odd segment/.style  = {fill=red, fill opacity=0.3}
+            ];
+
+    \end{axis}
+
+\end{tikzpicture}

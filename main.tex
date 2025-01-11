@@ -1,0 +1,514 @@
+%! TEX TS-program = LuaLaTeX
+
+% Gemini theme
+% See: https://rev.cs.uchicago.edu/k4rtik/gemini-uccs
+% A fork of https://github.com/anishathalye/gemini
+
+\documentclass[12pt, usenames, dvipsnames]{beamer}
+
+% ====================
+% Packages
+% ====================
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[size=custom, width=121.92, height=91.44, scale=1]{beamerposter}
+\usetheme{gemini}
+\usecolortheme{stanford}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+\usepackage{hyperref}
+\usepackage{amsthm}
+\usepackage{thmtools}
+
+% For theorems and such
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+
+\usepackage{natbib}
+
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{bbm}
+\usepackage[symbol]{footmisc}
+
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+
+% ====================
+% Lengths
+% ====================
+
+% If you have N columns, choose \sepwidth and \colwidth such that
+% (N+1)*\sepwidth + N*\colwidth = \paperwidth
+\newlength{\sepwidth}
+\newlength{\colwidth}
+\setlength{\sepwidth}{0.025\paperwidth}
+\setlength{\colwidth}{0.30\paperwidth}
+
+\newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
+
+%% load custom macros and pre-defined symbols
+\input{macros/math}
+%% macros for paragraph mode
+\input{macros/paragraph}
+
+%% tikz
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{
+	compat=1.16,
+	oracle/.style={color=bad, style=solid, line width=1.5pt},
+	bound/.style={color=blue, style=solid, line width=1.5pt},
+	objective/.style={color=black, style=solid, line width=1.5pt},
+}
+\input{macros/plots}
+\usetikzlibrary{shapes, arrows}
+\usetikzlibrary{decorations.pathreplacing, calligraphy, calc}
+\usepgfplotslibrary{fillbetween}
+
+\definecolor{BurntOrange}{HTML}{CC5500}
+\definecolor{DarkFern}{HTML}{407428}
+\definecolor{CBRed}{HTML}{994F00}
+\definecolor{CBBlue}{HTML}{006CD1}
+\colorlet{Fern}{DarkFern!85!white}
+\colorlet{LightFern}{DarkFern!20!white}
+
+\colorlet{LightCerulean}{CBBlue!20!white}
+\setbeamercolor{result}{bg=LightCerulean}
+\setbeamercolor{headline}{bg=white,fg=cardinalred}
+
+\definecolor{bad}{HTML}{eb6223}
+\definecolor{good}{HTML}{9434ed}
+\newcommand{\bad}[1]{\textcolor{bad}{#1}}
+\newcommand{\good}[1]{\textcolor{CBBlue}{#1}}
+
+\newcommand{\red}[1]{\textcolor{Red}{#1}}
+\newcommand{\green}[1]{\textcolor{ForestGreen}{#1}}
+\newcommand{\blue}[1]{\textcolor{CBBlue}{#1}}
+\newcommand{\purple}[1]{\textcolor{Magenta}{#1}}
+
+\newcommand{\horizontalrule}{
+	{
+			\vspace{-0.5em}
+            \begin{center}
+			\rule{0.6\textwidth}{0.1em}
+            \end{center}
+			\vspace{-0.2em}
+		}
+}
+
+
+\title{Directional Smoothness and Gradient Methods: Convergence and Adaptivity}
+
+\author{Aaron Mishkin* \inst{1}%
+	\and Ahmed Khaled* \inst{2}% 
+    \and Yuanhao Wang \inst{2}%
+	\and Aaron Defazio \inst{3}% 
+	\and Robert M. Gower \inst{4}}
+
+\institute[shortinst]{\inst{1} Stanford University \samelineand \inst{2} Princeton University \samelineand \inst{3} FAIR, META \samelineand \inst{4} CCM, Flatiron Institute}
+
+% ====================
+% Footer (optional)
+% ====================
+
+\footercontent{
+	\textbf{NeurIPS 2024} \hfill \textbf{$^*$ Equal Contribution}\hfill
+	\textbf{Correspondence}: \href{mailto:amishkin@cs.stanford.edu}{amishkin@cs.stanford.edu}}
+% (can be left out to remove footer)
+
+% ====================
+% Body
+% ====================
+
+\begin{document}
+
+% This adds the Logos on the top left and top right
+\addtobeamertemplate{headline}{}
+{%
+    \begin{tikzpicture}[remember picture,overlay]
+        \node [anchor=north west, inner sep=3cm] at ([xshift=0.0cm,yshift=-3.0cm]current page.north west)
+        {\includegraphics[height=2.5cm]{assets/institutes/ccm.png}};
+        \node [anchor=north west, inner sep=3cm] at ([xshift=0.5cm,yshift=2.0cm]current page.north west)
+        {\includegraphics[height=5.5cm]{assets/institutes/meta_logo.png}};
+        \node [anchor=north east, inner sep=3cm] at ([xshift=-1.0cm,yshift=1.85cm]current page.north east)
+        {\includegraphics[height=5.0cm]{assets/institutes/stanford.png}};
+        \node [anchor=north east, inner sep=3cm] at ([xshift=0.0cm,yshift=-2.00cm]current page.north east)
+        {\includegraphics[height=5.0cm]{assets/institutes/princeton.png}};
+    \end{tikzpicture}
+}%
+
+\begin{frame}[t]
+    \large
+    \vspace{-2.5ex}
+    \begin{columns}[t]
+        \separatorcolumn
+        \begin{column}{\colwidth}
+            \begin{block}{Introduction}
+                {\Large
+                    \textbf{Goal}: Minimize convex, differentiable function \( f \) using
+                    GD,
+                    \[
+                        \xkk = \xk - \etak \grad(\xk).
+                    \]
+                }
+                %\vspace{-1ex}
+
+                {\Large
+                    \textbf{Problem}: Gradient descent (GD) is an inherently \good{local algorithm},
+                    but standard analyses rely on \bad{global, worst-case} assumptions.%
+                }
+                \vspace{-1.5ex}
+                \begin{columns}[t]
+                    \begin{column}{0.5\textwidth}
+                        \begin{center}
+                            \Large \textbf{\bad{Global Smoothness}}
+                        \end{center}
+                        \vspace{-2ex}
+
+                        \begin{figure}[]
+                            \centering
+                            \input{assets/quartic.tex}
+                        \end{figure}
+                    \end{column}
+                    \begin{column}{0.5\textwidth}
+                        \begin{center}
+                            \Large \textbf{\good{Directional Smoothness}}
+                        \end{center}
+                        \vspace{-2ex}
+
+                        \begin{figure}[]
+                            \centering
+                            \input{assets/quartic_ds.tex}
+                        \end{figure}
+                    \end{column}
+                \end{columns}
+                {\Large \textbf{Main Contributions}:}
+                \vspace{-1.5ex}
+                \begin{itemize}
+                    \item \good{Directional Smoothness}:
+                          a new, point-wise relaxation of \( L \)-smoothness.
+
+                    \item \good{Path-Dependent Rates}:
+                          guarantees for GD using only local properties of \( f \).
+
+                    \item \good{Adaptive Methods}:
+                          optimizers that adapt to the directional smoothness.
+                \end{itemize}
+            \end{block}
+            \vspace{-1.5ex}
+            \begin{block}{Directional Smoothness}
+
+                {\Large%
+                    \textbf{Global Smoothness}: \( f \) is \bad{\( L \)-smooth} if for every
+                    \( x, y \in \text{dom}(f)\),
+                    \[
+                        f(y) \leq f(x) + \abr{\grad(x), y - x} + \frac{\bad{L}}{2}\norm{y - x}_2^2,
+                    \]
+                }%
+
+                {\Large%
+                    \textbf{Directional Smoothness}: \( M \) is a
+                    \good{directional smoothness function} if,
+                    \[
+                        f(y) \leq f(x) + \abr{\grad(x), y - x} + \frac{\good{M(x, y)}}{2}\norm{y - x}_2^2.
+                    \]
+                }%
+
+                {\Large
+                    We give \good{explicit} smoothness functions --- no oracles required!
+                }
+
+                \horizontalrule
+
+                {\Large
+                    \textbf{Point-wise Smoothness}:
+                    \vspace{2ex}
+                    \[
+                        D(x, y) =
+                        \frac{\bad{2} \norm{\grad(x) - \grad(y)}_2}{\norm{x - y}_2}
+                        \hspace{19.4ex}
+                        (\bad{\leq 2L})
+                    \]
+
+                    \textbf{Path-wise Smoothness}:
+                    \vspace{2ex}
+                    \[
+                        A(x, y) =
+                        \bad{\sup_{t \in [0, 1]}}
+                        \frac{\abr{\grad(x + \bad{t}(y - x)) - \grad(x), y - x}}
+                        {\bad{t}\norm{x - y}_2^2}
+                        \hspace{3ex}
+                        (\good{\leq L})
+                    \]
+
+                    \textbf{Exact (Point-wise) Smoothness}:
+                    \vspace{2ex}
+                    \[
+                        H(x, y) =
+                        \frac{2\abs{f(y) - f(x) - \abr{\grad(x), y - x}}}{\norm{y - x}_2^2}
+                        \hspace{8.7ex}
+                        (\good{\leq L})
+                    \]
+                }
+                %\vspace{1ex}
+
+                {\Large
+                    Easy to \good{compute in hindsight} unlike other approaches
+                    \citep{park2021preconditioned,
+                        mei21_lever_non_unifor_first_order}.
+                }
+
+            \end{block}
+        \end{column}
+
+        \separatorcolumn
+
+        \begin{column}{\colwidth}
+            \begin{block}{Path-Dependent Rates}
+
+                \begin{figure}[]
+                    \centering
+                    \input{assets/quadratic_bound}%
+                \end{figure}
+                \vspace{-1.5ex}
+
+                \begin{itemize}
+                    \Large
+                    \item  \good{Directional smoothness} \( \implies \)
+                          more progress than \bad{\( L \)-smoothness}!
+                \end{itemize}
+                \vspace{-1.5ex}
+                \horizontalrule
+
+                {\Large
+                    \textbf{Approach}: study \good{local behavior} of GD along
+                    \( \cbr{\xk} \) using \( M(\xk, \xkk) \).
+                }
+
+                \vspace{1ex}
+
+                \begin{beamercolorbox}[wd=\textwidth,sep=1em]{result}
+                    \textbf{Proposition} (Strongly Convex):
+                    Let \( \Delta_i = \norm{\x_i - \x_0}_2^2 \)
+                    and \( M_i = M(\x_i, \x_{i+1}) \).
+                    If \( f \) is \( \mu \)-strongly convex, then GD with
+                    step-size sequence \( \cbr{\etak} \) satisfies,
+                    {\Large
+                            \[
+                                \Delta_{k}
+                                \leq \sbr{\prod_{i=0}^{k}
+                                    \frac{\abs{1 \!-\! \mu \eta_i}}{1 + \mu \eta_i}} \Delta_0
+                                + \sum_{i=0}^k \sbr{\prod_{j > i}
+                                    \frac{\abs{1 \!-\! \mu \eta_j}}{1 + \mu \eta_j}}
+                                \eta_i^2 \bad{\rbr{M_i \eta_i - 1}} \norm{\grad(\xk)}_2^2.
+                            \]
+                        }
+                \end{beamercolorbox}
+                \vspace{-1.0ex}
+
+                {\Large
+                    \begin{itemize}
+                        \item \good{Fast rates} when \( \etak \) are adapted,
+                              meaning \( \etak \leq 1 / M(\xk, \xkk)\).
+
+                        \item Describes worst-case \bad{``blow-up''} when \( \etak \) are not adapted.
+                    \end{itemize}
+                }
+
+                \vspace{1ex}
+
+                \begin{beamercolorbox}[wd=\textwidth,sep=1em]{result}
+                    \textbf{Proposition} (Convex):
+                    Let \( \Delta_i = \norm{\x_i - \x_0}_2^2 \)
+                    and \( M_i = M(\x_i, \x_{i+1}) \).
+                    If \( f \) is convex, then
+                    GD with step-size sequence \( \cbr{\etak} \)
+                    satisfies,
+                    {\Large
+                            \[
+                                \min_{i \in [k]} f(x_i) - f(\xopt)
+                                \leq \frac{\Delta_0
+                                    + \sum_{i=0}^{k} \eta_i^2 \bad{(\eta_i M_i - 1)}
+                                    \norm{\grad(\x_i)}_2^2}{2\sum_{i=0}^k \eta_i},
+                            \]
+                        }
+                \end{beamercolorbox}
+                \vspace{0.5ex}
+
+                {\Large
+                    \textbf{Definition}: \( \etak \) is
+                    \good{strongly adapted} to smoothness function \( M \) if,
+                    \[
+                        \etak = \frac{1}{M(\xk, \xk - \etak \grad(\xk))}.
+                    \]
+                    %\vspace{2ex}
+                    %This is the directional smoothness version of
+                    %``optimal'' \bad{\( \etak = 1 / L \)}!
+
+                    \vspace{0.5ex}
+                    Strongly adapted step-sizes get \good{path-dependent rates}.
+                    \vspace{-1.0ex}
+
+                    \begin{columns}[t]
+                        \begin{column}{0.45\textwidth}
+                            \begin{center}
+                                \Large \textbf{\bad{Global Smoothness}}
+                            \end{center}
+                            \vspace{1ex}
+                            \[
+                                \min_{i \in [k]} f(x_i) - f(\xopt)
+                                \leq \frac{\bad{L} \Delta_0}{k+1}
+                            \]
+                        \end{column}
+                        \begin{column}{0.55\textwidth}
+                            \begin{center}
+                                \Large \textbf{\good{Directional Smoothness}}
+                            \end{center}
+                            \vspace{1ex}
+                            \[
+                                \min_{i \in [k]} f(x_i) - f(\xopt)
+                                \leq \good{\sbr{\frac{\sum_{i=0}^k M_i}{k+1}}}
+                                \frac{\Delta_0}{k+1}
+                            \]
+                        \end{column}
+                    \end{columns}
+                }
+            \end{block}
+            \begin{block}{The Quadratic Case}
+                {\Large
+                    \textbf{Problem}: strongly adapted \( \etak \)
+                    require solving an \bad{implicit equation}.
+                }
+                \vspace{1ex}
+
+                \begin{beamercolorbox}[wd=\textwidth,sep=1em]{result}
+                    \textbf{Lemma}: If \( f(x) = \half x^\top B x - c^\top x \),
+                    then the point-wise smoothness is given by,
+                    {\Large
+                            \[
+                                D(\xk, \xkk(\etak))
+                                = \frac{\norm{B \grad(\xk)}_2}{\norm{\grad(\xk)}_2}.
+                            \]
+                        }
+                \end{beamercolorbox}
+                \vspace{-1.0ex}
+                \begin{itemize}
+                    \Large
+                    \item This recovers a \good{classic step-size} for quadratic
+                          optimization proposed by \citet{dai2006computational}!
+                \end{itemize}
+            \end{block}
+        \end{column}
+
+        \separatorcolumn
+
+        \begin{column}{\colwidth}
+
+            \begin{block}{Adaptive Methods}
+                \vspace{-.25ex}
+                \begin{center}
+                    {\Large
+                        \textbf{Question}: Can we obtain \good{path-dependent
+                        rates} for convex functions without computing
+                        \bad{strongly adapted step-sizes}?
+                    }
+                \end{center}
+                \vspace{-1.5ex}
+
+                \horizontalrule
+
+                {\Large
+                    \textbf{First Attempt}: Modify exponential search \citep{yair2022parameter}.
+                }
+                \vspace{0.25ex}
+
+                \begin{beamercolorbox}[wd=\textwidth,sep=1em]{result}
+                    \textbf{Theorem} (informal): If \( f \) is convex and
+                    \( L \)-smooth, then exponential search requires at most
+                    \( 2 K \log \log (2 \eta_0 / L) \) iterations of GD to find
+                    \( \eta^* \) yielding the path-dependent convergence rate:
+                    {\Large
+                    \[
+                        f(\bar{x}_K) - f(\xopt)
+                        \leq \frac{\norm{x_0 - x_{*}}^2}{2 K}
+                        \left[ \frac{\sum_{i=0}^K M(\bad{x_{i+1}'}, \bad{x_i'})
+                                \norm{\nabla f(\bad{x_i'})}^2}{\sum_{i=0}^K \norm{\nabla f(\bad{x_i'})}^2} \right],
+                    \]
+                    }
+                \end{beamercolorbox}
+
+                {\Large
+                \textbf{Problem}: Only adapts to smoothness along \bad{virtual sequence}
+                \( \cbr{\xk'} \).
+                }
+                \vspace{-2.5ex}
+                \horizontalrule
+                {\Large
+                    \textbf{Second Attempt}: \good{Polyak step-size}:
+                    \(
+                    \etak = \gamma (f(\xk) - f(\xopt))/\norm{\grad(\xk)}_2^2
+                    \)
+                }
+
+                \vspace{1ex}
+
+                \begin{beamercolorbox}[wd=\textwidth,sep=1em]{result}
+                    \textbf{Theorem} (Polyak Step-Size): If \( f \) is convex and
+                    differentiable, then GD with the Polyak step-size using
+                    \( \gamma = 1.5 \) satisfies,
+                    {\Large
+                            \[
+                                \min_{i \in [k]} f(x_i) - f(\xopt)
+                                \leq \bad{3} \good{\sbr{\frac{\sum_{i=0}^k M_i}{k+1}}}
+                                \frac{\Delta_0}{k+1}
+                            \]
+                        }
+                \end{beamercolorbox}
+                \vspace{-1ex}
+                {\Large
+                    \begin{itemize}
+                        \item \good{Matches rate} for strongly adapted step-sizes up to a constant!
+                        \item Polyak step-size is ``adaptive'' to \good{any choice} of smoothness
+                              \( M \).
+                    \end{itemize}
+                }
+
+            \end{block}
+            \vspace{-3ex}
+            \begin{block}{Experiments}
+
+                \begin{figure}[]
+                    \centering
+                    \includegraphics[width=1\textwidth]{assets/theoretical_rates.pdf}
+                \end{figure}
+                \vspace{-3ex}
+
+                \begin{figure}[]
+                    \centering
+                    \includegraphics[width=1\textwidth]{assets/logistic_comparison.pdf}
+                \end{figure}
+
+                \vspace{-1ex}
+                \underline{\textbf{References}}
+                \footnotesize{
+                    \bibliography{
+                        refs.bib
+                    }
+                }
+                \bibliographystyle{icml2022}
+
+            \end{block}
+
+        \end{column}
+
+        \separatorcolumn
+    \end{columns}
+\end{frame}
+
+\end{document}
