@@ -1,4 +1,4 @@
-# SCNN Poster
+# Directional Smoothness Poster 
 
 Poster for the paper [Directional Smoothness and Gradient Methods: Convergence and Adaptivity](https://openreview.net/forum?id=hVgVmIJXpS)
 presented at NeurIPS 2024.
